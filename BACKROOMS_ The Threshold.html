@@ -1,0 +1,143 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>BACKROOMS: The Threshold</title><style>
+:root{--fg:#e8dfa0;--bg:#000}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:"Courier New",monospace;overflow:hidden}
+canvas{display:block;width:100%;height:100%;image-rendering:pixelated}
+#hud{position:fixed;left:10px;top:calc(8px + env(safe-area-inset-top,0px));font-size:13px;white-space:pre;text-shadow:0 0 4px #000;pointer-events:none}
+#msg,#ach,#wh{position:fixed;left:0;right:0;text-align:center;pointer-events:none;text-shadow:0 0 6px #000;padding:0 8%}
+#msg{bottom:calc(8%+env(safe-area-inset-bottom,0px));font-size:15px;white-space:pre-wrap}
+#ach{top:10%;color:#ffd24a;font-size:15px}
+#wh{top:42%;font-size:30px;color:#a00;letter-spacing:4px}
+#ov{position:fixed;inset:0;background:#000e;padding:6%;overflow:auto;box-sizing:border-box;white-space:pre-wrap;line-height:1.5;font-size:14px}
+button{background:#000;color:var(--fg);border:1px solid var(--fg);font:inherit;padding:8px 16px;margin:8px 8px 0 0;cursor:pointer}
+h1{margin:0 0 8px;font-size:26px;letter-spacing:3px}
+</style></head><body><canvas id="c"></canvas><div id="hud"></div><div id="msg"></div><div id="ach"></div><div id="wh"></div><div id="ov"></div><script>
+const R=Math.random,cv=document.getElementById('c'),g=cv.getContext('2d'),$=i=>document.getElementById(i);
+// name,wall,drainMul,darkness,entity,hazard,goal,clue,lore[3]  ("S:" = survivor note)
+const LV=[
+["Level 0 - The Lobby",[200,175,60],1,0,"Hound","damp wiring","Collect 3 Threshold Logs + the Keycard Fragment, then reach the exit.","Threshold Log",["LOG 01: Initiative team entered the Lobby at 0300. The carpet is always damp. The hum never stops.","LOG 02: Subject 0 volunteered; memory sedated. Do not tell them the exit leads DOWN.","LOG 03: If you are reading this, you are Subject 0. You walked in on your own."]],
+["Level 1 - Habitable Zone",[70,78,92],1,.5,"Facelings","live wires","Recover 3 generator parts to restart the generator.","Generator Part",["S:Dana's note: I hid in the generator closet. Left you water. Follow the hum.","Memo: Level 1 is a stabilizer. Restore its generator and the lower levels breathe.","Scrawled: THE WALLS ARE WARM. THEY LISTEN TO THE GENERATOR."]],
+["Level 2 - Pipe Dreams",[150,75,40],1.2,.3,"Howler","scalding steam","Open 3 pressure valves in the right order of discovery.","Pressure Valve",["Engineer: the pipes were never ours. They were already running when we arrived.","Foreman: Valve 7 screams when opened. Open it anyway.","Scratched in pipe: THE HEAT IS ITS BREATH."]],
+["Level 3 - Electrical Station",[60,95,130],1.2,.6,"Static Wraith","arc surges","Restore power to the elevators using 3 VHS tapes' codes.","VHS Tape",["VHS 01 - Dr. Vale: The grid doesn't power the Backrooms. The Backrooms power the grid.","VHS 02 - static. A voice like yours says: don't go back up.","VHS 03 - Vale: We built a door. We never asked who would answer."]],
+["Level 4 - Abandoned Offices",[150,150,140],1.2,.2,"The Clerk","portal rifts","Gather 3 portal memos from the experiment floor.","Portal Memo",["Memo: Portal Test 14 - subject returned with a second shadow.","Memo: Staff are 'reassigned.' Nobody remembers the old floor plan.","Memo: Test 15 opens onto the Core. Project Threshold approved."]],
+["Level 5 - Terror Hotel",[120,30,45],2,.4,"The Concierge","cursed carpet","Find 3 ballroom keys. Sanity drains faster here.","Ballroom Key",["S:Guest register: Mara - Room 12 - hid the key in the piano. Be quiet.","Menu card: Tonight's special is YOU.","Concierge note: Checkout is permanent."]],
+["Level 6 - Lights Out",[40,40,55],2.2,1,"Clicker","nothing but the dark","Collect 3 fuses. Light is life - ration your batteries.","Fuse",["S:Voice memo - Kit: If you hear clicking, stop moving. Light draws it.","Fuse tag: Initiative fuses burn out when something is watching.","Scratched: DARKNESS IS THE ONLY KIND THING HERE."]],
+["Level 7 - The Flooded House",[40,95,105],1.5,.5,"Drowned Child","cold flood water","Recover 3 family photos to learn who lived here.","Family Photo",["Photo: a family at dinner. Faces scratched out. Water at their ankles.","S:Child's drawing: Mom swam down. She said she'd find the way.","Letter: We were the first Initiative test families. No one told our relatives."]],
+["Level 8 - Cave System",[95,85,75],1.5,.7,"Lurker","falling rock","Collect 3 crystal shards from the living cave.","Crystal Shard",["Field note: the caves were grown, not carved. The rock has a pulse.","Caver's log: something copies our voices. Count heads often.","Shard etched: EVERY LEVEL IS A ROOM IN ONE HOUSE."]],
+["Level 9 - Endless Suburbs",[45,55,100],1.5,.6,"Window Watcher","sleepwalking dread","Find 3 house keys. Search the houses for clues.","House Key",["S:Neighbor note: Porch light on at no. 40 means safe. Please be safe.","Mailbox letter: Dear Subject 0, you grew up on this street.","Key tag: HOME - PROPERTY OF THE INITIATIVE."]],
+["Level 10 - The Field of Wheat",[215,170,60],1.8,.1,"Scarecrow","hidden sinkholes","Collect 3 wheat idols. It looks peaceful. It is not.","Wheat Idol",["Sign: Don't walk straight. The field is hungry for straight lines.","Journal: Under the wheat is the first room. The Lobby is its roof.","Idol: a wheat figure with your face."]],
+["Final Level - The Threshold Core",[230,230,255],2.2,.5,"The Initiative Echo","reality tears","Retrieve 3 core fragments, then reach the Core.","Core Fragment",["Terminal: The Backrooms are the Initiative's waste - memory, fear, people.","Terminal: Subject 0 was the first volunteer and the last to leave.","Terminal: Shut it down, take its place, or walk away and forget."]]];
+const KEY="KEYCARD FRAGMENT: half a badge. THRESHOLD INITIATIVE - CLEARANCE: SUBJECT 0.";
+const WH=["DON'T LOOK","BEHIND YOU","THIS WAY OUT","YOU WERE HERE","LET GO","IT KNOWS YOUR NAME"];
+const IC={clue:[255,235,120],al:[90,230,255],bat:[80,255,80],scrap:[150,150,150],rep:[255,140,30],art:[230,60,230],map:[80,120,255]};
+const ART=["Initiative Badge","Cracked Compass","Memory Reel","Door Without a Wall","Subject 0 Photograph"];
+let W,H,M,N,items,ents,haz,fakes=[],ex,df,zb,got=0,k={},st='title',AC,hum,hg,ev=25,bo=0,wt=8,mt=0,whT=0,fl=0,D=12,lit=1,far=[],open=[],dft=0,hudT=0,last=0,exC=0;
+const P={x:1.5,y:1.5,a:0,s:100,fl:1,ch:100,bat:1,al:0,rep:0,scrap:0,mm:0};
+const G={lv:0,lore:[],art:0,surv:0,ach:{}};
+const need=()=>G.lv?3:4;
+function rs(){W=cv.width=innerWidth>>1;H=cv.height=innerHeight>>1;zb=new Float32Array(W)}rs();onresize=rs;
+function msg(t,ms){$('msg').textContent=t;mt=ms/1000}
+function ach(id,t){if(G.ach[id])return;G.ach[id]=1;$('ach').textContent='★ '+t;setTimeout(()=>$('ach').textContent='',3500)}
+function bfs(sx,sy){const d=new Int16Array(N*N).fill(-1),q=[[sx,sy]];d[sy*N+sx]=0;for(let i=0;i<q.length;i++){const[x,y]=q[i];for(const[a,b]of[[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+a,ny=y+b;if(M[ny]&&M[ny][nx]===0&&d[ny*N+nx]<0){d[ny*N+nx]=d[y*N+x]+1;q.push([nx,ny])}}}return d}
+function gen(l){const c=8+(l>>1);N=2*c+1;M=[];for(let y=0;y<N;y++)M.push(Array(N).fill(1));M[1][1]=0;const s=[[1,1]];
+while(s.length){const[x,y]=s[s.length-1],o=[[2,0],[-2,0],[0,2],[0,-2]].filter(([a,b])=>{const nx=x+a,ny=y+b;return nx>0&&ny>0&&nx<N-1&&ny<N-1&&M[ny][nx]===1});if(!o.length){s.pop();continue}const[a,b]=o[R()*o.length|0];M[y+b/2][x+a/2]=0;M[y+b][x+a]=0;s.push([x+a,y+b])}
+for(let i=0;i<N*N/7;i++){const x=1+R()*(N-2)|0,y=1+R()*(N-2)|0;M[y][x]=0}}
+function load(l){G.lv=l;gen(l);const d=bfs(1,1);open=[];far=[];let mx=0;ex={x:1.5,y:1.5};
+for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(!M[y][x]&&d[y*N+x]>5){open.push([x+.5,y+.5]);if(d[y*N+x]>12)far.push([x+.5,y+.5]);if(d[y*N+x]>mx){mx=d[y*N+x];ex={x:x+.5,y:y+.5}}}
+const pk=()=>open[R()*open.length|0];items=[];const add=(k,n)=>{for(let i=0;i<n;i++){const[x,y]=pk();items.push({k,x,y})}};
+add('clue',need());add('bat',2);add('scrap',2);if(!l||R()<.4)add('al',1);if(R()<.4)add('map',1);if(R()<.35)add('rep',1);if(R()<.35)add('art',1);
+ents=[];for(let i=0;i<1+(l/3|0);i++){const[x,y]=far[R()*far.length|0]||pk();ents.push({x,y,stun:0,bh:l%3})}
+haz=[];for(let i=0;i<4+l;i++){const[x,y]=pk();haz.push({x,y,c:0})}
+fakes=[];got=0;P.x=1.5;P.y=1.5;P.mm=0;bo=0;df=bfs(1,1);if(hum)hum.frequency.value=45+l*8;
+const L=LV[l];msg(`${L[0]}\n${L[6]}\nHazard: ${L[5]} | Entity: ${L[4]}`,7000)}
+function save(){try{localStorage.setItem('brs',JSON.stringify({G,P:{s:P.s,bat:P.bat,al:P.al,rep:P.rep,scrap:P.scrap}}))}catch(e){}}
+function aud(){if(AC)return;try{AC=new AudioContext();hum=AC.createOscillator();hg=AC.createGain();hg.gain.value=.04;hum.type='sawtooth';hum.frequency.value=45+G.lv*8;hum.connect(hg).connect(AC.destination);hum.start()}catch(e){AC=0}}
+function whisper(){if(!AC)return;const n=AC.sampleRate*1.2,b=AC.createBuffer(1,n,AC.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=(R()*2-1)*Math.sin(Math.PI*i/n);const s=AC.createBufferSource(),f=AC.createBiquadFilter(),v=AC.createGain();f.type='bandpass';f.frequency.value=1500+R()*1800;f.Q.value=4;v.gain.value=.5;s.buffer=b;s.connect(f).connect(v).connect(AC.destination);s.start()}
+function wall(x,y){return M[y|0][x|0]}
+function mv(o,dx,dy){const r=.2;if(!wall(o.x+dx+Math.sign(dx)*r,o.y))o.x+=dx;if(!wall(o.x,o.y+dy+Math.sign(dy)*r))o.y+=dy}
+function nxt(e,ch){const x=e.x|0,y=e.y|0,o=[];for(const[a,b]of[[1,0],[-1,0],[0,1],[0,-1]])if(!M[y+b][x+a])o.push([x+a,y+b]);if(ch)o.sort((p,q)=>df[p[1]*N+p[0]]-df[q[1]*N+q[0]]);else o.sort(()=>R()-.5);e.tg=o[0]}
+function take(t){const L=LV[G.lv];
+if(t=='clue'){const i=got++;let x=(G.lv==0&&i==3)?KEY:L[8][i];if(x.slice(0,2)=='S:'){G.surv++;x=x.slice(2)}G.lore.push({l:G.lv,t:x});msg(`[${i==3?'Keycard Fragment':L[7]} ${got}/${need()}]\n${x}`,8000);ach('c','First clue found');if(got>=need())setTimeout(()=>msg('The exit has unlocked. Find it.',4000),8000)}
+else if(t=='bat'){P.bat++;msg('Battery +1',1500)}else if(t=='al'){P.al++;msg('ALMOND WATER found. Press E to drink.',3000)}
+else if(t=='map'){P.mm=1;msg('Map found. Press M to toggle.',2500)}else if(t=='rep'){P.rep++;msg('Entity Repellent +1 (G)',2000)}
+else if(t=='scrap'){P.scrap++;msg('Scrap +1 (C: 2 scrap = repellent)',2000)}
+else{G.art++;G.lore.push({l:G.lv,t:'ARTIFACT: '+ART[G.art%5]});msg('RARE LORE OBJECT: '+ART[G.art%5],4000);ach('a','Artifact collector')}}
+function hit(e){P.s-=22;fl=.6;e.stun=3;const[x,y]=far[R()*far.length|0]||[e.x,e.y];e.x=x;e.y=y;e.tg=0;msg(LV[G.lv][4]+' touches you.',1800)}
+function upd(dt){const L=LV[G.lv],d=L[3];
+P.a+=((k.arrowright?1:0)-(k.arrowleft?1:0))*2.2*dt;
+const f=(k.w||k.arrowup?1:0)-(k.s||k.arrowdown?1:0),sd=(k.d?1:0)-(k.a?1:0),sp=(k.shift?4:2.6)*dt,c=Math.cos(P.a),s=Math.sin(P.a);
+mv(P,(c*f-s*sd)*sp,(s*f+c*sd)*sp);
+lit=P.fl&&P.ch>0;if(P.fl){P.ch-=(.5+d*1.5)*dt;if(P.ch<=0){if(P.bat>0){P.bat--;P.ch=100;msg('Battery swapped.',1500)}else P.ch=0}}
+bo-=dt;D=bo>0?1.3:(12-9.5*d)+(lit?1.5+6*d:0);
+if((dft-=dt)<=0){dft=.3;df=bfs(P.x|0,P.y|0)}
+let dr=.1+(D<5?.5:0),near=99;
+for(const e of ents){if(e.stun>0){e.stun-=dt;continue}const ds=Math.hypot(e.x-P.x,e.y-P.y);near=Math.min(near,ds);if(ds<6)dr+=3*(1-ds/6);if(ds<.6){hit(e);continue}
+if(e.bh==1){const an=Math.atan2(e.y-P.y,e.x-P.x),df2=Math.abs(Math.atan2(Math.sin(an-P.a),Math.cos(an-P.a)));if(df2<.7&&ds<14)continue}
+const dd=df[(e.y|0)*N+(e.x|0)],ch=dd>=0&&dd<12,spd=(.9+G.lv*.07)*(e.bh==2&&!lit?1.5:1);
+if(!e.tg)nxt(e,ch);const tx=e.tg[0]+.5,ty=e.tg[1]+.5,ddx=tx-e.x,ddy=ty-e.y,dl=Math.hypot(ddx,ddy);
+if(dl<.05){e.x=tx;e.y=ty;nxt(e,ch)}else{const st2=Math.min(dl,spd*dt);e.x+=ddx/dl*st2;e.y+=ddy/dl*st2}}
+if(hg)hg.gain.value=.04+Math.max(0,.1*(1-near/8));
+for(const h of haz){h.c-=dt;if(h.c<=0&&Math.hypot(h.x-P.x,h.y-P.y)<.55){P.s-=8;h.c=1.5;fl=.4;msg('Hazard: '+L[5]+'!',1200)}}
+P.s-=dr*L[2]*dt;
+for(let i=items.length-1;i>=0;i--){const o=items[i];if(Math.hypot(o.x-P.x,o.y-P.y)<.6){items.splice(i,1);take(o.k)}}
+if(P.s<45&&!fakes.some(f=>!f.e)&&R()<dt*.3){for(let i=0;i<20;i++){const[x,y]=open[R()*open.length|0],ds=Math.hypot(x-P.x,y-P.y);if(ds>4&&ds<9){fakes.push({x,y,e:0,t:12});break}}}
+if(P.s<30&&fakes.filter(f=>f.e).length<2&&R()<dt*.2){const[x,y]=open[R()*open.length|0];if(Math.hypot(x-P.x,y-P.y)>3)fakes.push({x,y,e:1,t:8})}
+for(let i=fakes.length-1;i>=0;i--){const q=fakes[i];q.t-=dt;const ds=Math.hypot(q.x-P.x,q.y-P.y);if(ds<1||q.t<0){fakes.splice(i,1);if(ds<1){P.s-=q.e?6:10;fl=.3;msg(q.e?'Nothing was there.':'The exit was never real.',2000)}}}
+if(P.s<60&&(wt-=dt)<=0){wt=6+R()*8*(P.s/60+.3);$('wh').textContent=WH[R()*WH.length|0];whT=1.6;whisper()}
+if((whT-=dt)<=0)$('wh').textContent='';
+if((ev-=dt)<=0){ev=25+R()*30;if(R()<.5){bo=5+R()*4;msg('The lights die.',2500)}else{P.s-=5;whisper();msg('Something screams inside the walls.',2500)}}
+if((exC-=dt)<=0&&Math.hypot(ex.x-P.x,ex.y-P.y)<.8){exC=2;if(got>=need()){if(G.lv==11)return end('win');load(G.lv+1);save();if(G.lv==5)ach('d','Descent');msg(LV[G.lv][0]+'\n'+LV[G.lv][6],7000)}else msg(`The exit is sealed. Clues ${got}/${need()}`,2000)}
+if(P.s<10)ach('m','On the edge of madness');
+if(P.s<=0)end('dead')}
+function end(ty){st='end';document.exitPointerLock();let h,t;const l=G.lore.length,s=P.s|0,sv=G.surv,a=G.art,n=LV[G.lv];
+if(ty=='dead'){h='CONSUMED';t=`The walls of ${n[0]} lean in and the hum becomes your voice. ${n[4]} wears your face now. Someone else will find your log... if anyone is left.`;try{localStorage.removeItem('brs')}catch(e){}}
+else{if(a>=4&&l>=25){h='THE ARCHITECT [SECRET ENDING]';t='The artifacts hum and the Core kneels. You sit at the terminal and every level opens like a hand. You are the Backrooms now. You will be kinder.'}
+else if(l>=30&&s>=60&&sv>=3){h='THRESHOLD CLOSED [TRUE ENDING]';t='You read every log aloud. The Core shudders and releases the lost: Dana, Mara, Kit, the family. The Lobby carpet dries. You wake on a real street at dawn, remembering everything.'}
+else if(s<30){h='THE HOLLOW';t='You reach the Core but there is nobody left inside to leave. It takes the empty shape you became. The hum continues.'}
+else if(l>=20){h='SCARRED ESCAPE';t='You shut the Core down, but too many doors stay open. You walk out knowing the truth - and that something is still looking for Subject 0.'}
+else{h='THE LOOP';t='You step through without understanding. You wake in a yellow room. The carpet is damp. A log reads: If you are reading this, you are Subject 0.'}}
+try{localStorage.removeItem('brs')}catch(e){}
+$('ov').style.display='block';$('ov').innerHTML=`<h1>${h}</h1>${t}\n\nLore: ${l}/37 | Artifacts: ${a} | Survivors helped: ${sv} | Sanity: ${s}\n<button onclick="location.reload()">New Game</button>`}
+function hud(){const L=LV[G.lv],s=Math.max(0,P.s)|0;$('hud').textContent=`${L[0]}\nSANITY ${'█'.repeat(s/5|0)}${'░'.repeat(20-(s/5|0))} ${s}\nLight ${P.ch|0}% ${P.fl?'ON':'OFF'} | Batt ${P.bat} | Almond ${P.al} | Repel ${P.rep} | Scrap ${P.scrap}\n${L[7]} ${got}/${need()}`}
+function draw(t){if(!M)return;const L=LV[G.lv],c=L[1],fk=bo>0?.15:(R()<.03*(G.lv==0||G.lv==3?2:.5)?.35:1),lf=(.4+.6*D/12)*fk;
+const jx=P.s<25?(R()-.5)*4:0,jy=P.s<25?(R()-.5)*4:0;g.setTransform(1,0,0,1,jx,jy);
+let gr=g.createLinearGradient(0,0,0,H/2);gr.addColorStop(0,`rgb(${c.map(v=>v*.3*lf|0)})`);gr.addColorStop(1,'#000');g.fillStyle=gr;g.fillRect(-5,-5,W+10,H/2+5);
+gr=g.createLinearGradient(0,H/2,0,H);gr.addColorStop(0,'#000');gr.addColorStop(1,`rgb(${c.map(v=>v*.3*lf|0)})`);g.fillStyle=gr;g.fillRect(-5,H/2,W+10,H/2+5);
+const dX=Math.cos(P.a),dY=Math.sin(P.a),pX=-dY*.66,pY=dX*.66;
+for(let x=0;x<W;x++){const cx=2*x/W-1,rx=dX+pX*cx,ry=dY+pY*cx;let mx=P.x|0,my=P.y|0;const ddx=Math.abs(1/rx),ddy=Math.abs(1/ry);let sx,sy,sdx,sdy,side=0;
+if(rx<0){sx=-1;sdx=(P.x-mx)*ddx}else{sx=1;sdx=(mx+1-P.x)*ddx}if(ry<0){sy=-1;sdy=(P.y-my)*ddy}else{sy=1;sdy=(my+1-P.y)*ddy}
+while(!M[my][mx]){if(sdx<sdy){sdx+=ddx;mx+=sx;side=0}else{sdy+=ddy;my+=sy;side=1}}
+const dist=Math.max(.05,side?sdy-ddy:sdx-ddx);zb[x]=dist;const wx=(side?P.x+dist*rx:P.y+dist*ry)%1,h=H/dist,f=Math.pow(Math.max(0,1-dist/D),1.2)*fk*(side?.75:1)*(wx*5%1<.12?.8:1);
+g.fillStyle=`rgb(${c[0]*f|0},${c[1]*f|0},${c[2]*f|0})`;g.fillRect(x,(H-h)/2,1,h)}
+const sprs=[],A=(o,col,sz,w,ey)=>sprs.push({x:o.x,y:o.y,c:col,sz,w,ey});
+items.forEach(o=>A(o,IC[o.k],.3,.25));haz.forEach(o=>A(o,[200,60,20],.08,.9));
+ents.forEach(o=>A(o,[12,12,14],1,.4+(P.s<40?Math.sin(t*.01)*.15:0),1));
+fakes.forEach(o=>A(o,o.e?[12,12,14]:[60,255,90],o.e?1:.9,o.e?.4:.6,o.e));A(ex,got>=need()?[60,255,90]:[255,50,50],.9,.6);
+sprs.forEach(s=>s.d=(s.x-P.x)**2+(s.y-P.y)**2);sprs.sort((a,b)=>b.d-a.d);
+const inv=1/(pX*dY-dX*pY);
+for(const s of sprs){const rx=s.x-P.x,ry=s.y-P.y,tx=inv*(dY*rx-dX*ry),ty=inv*(-pY*rx+pX*ry);if(ty<.15)continue;
+const sx=W/2*(1+tx/ty),h=H/ty*s.sz,w=H/ty*s.w,bt=H/2+H/ty/2,f=Math.max(0,1-ty/D)*fk;if(f<=0)continue;
+g.fillStyle=`rgb(${s.c[0]*f|0},${s.c[1]*f|0},${s.c[2]*f|0})`;
+for(let x=Math.max(0,sx-w/2|0);x<Math.min(W,sx+w/2);x++)if(ty<zb[x])g.fillRect(x,bt-h,1,h);
+if(s.ey&&sx>0&&sx<W&&ty<zb[sx|0]){g.fillStyle=`rgba(255,40,40,${f})`;g.fillRect(sx-w/4,bt-h*.8,w/6+1,h/20+1);g.fillRect(sx+w/8,bt-h*.8,w/6+1,h/20+1)}}
+g.setTransform(1,0,0,1,0,0);
+const v=g.createRadialGradient(W/2,H/2,H*.2,W/2,H/2,W*.65),sa=Math.max(0,1-P.s/100);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,`rgba(${P.s<40?60:0},0,0,${.3+sa*.6})`);g.fillStyle=v;g.fillRect(0,0,W,H);
+if(P.s<40){g.fillStyle=`rgba(90,0,70,${(40-Math.max(0,P.s))/200})`;g.fillRect(0,0,W,H)}
+if(fl>0){g.fillStyle=`rgba(255,0,0,${fl*.5})`;g.fillRect(0,0,W,H)}
+if(P.mm){const z=4,ox=W-N*z-6;g.fillStyle='rgba(0,0,0,.6)';g.fillRect(ox-2,4,N*z+4,N*z+4);for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(M[y][x]){g.fillStyle='#666';g.fillRect(ox+x*z,6+y*z,z,z)}g.fillStyle='#4f4';g.fillRect(ox+ex.x*z-1,6+ex.y*z-1,3,3);g.fillStyle='#fff';g.fillRect(ox+P.x*z-1,6+P.y*z-1,3,3)}}
+function loop(t){requestAnimationFrame(loop);const dt=Math.min(.05,(t-last)/1000);last=t;if(st=='play'){upd(dt);fl=Math.max(0,fl-dt);if((mt-=dt)<=0)$('msg').textContent='';if((hudT-=dt)<=0){hudT=.15;hud()}}draw(t)}
+function journal(){if(st=='play'){st='journal';document.exitPointerLock();$('ov').style.display='block';$('ov').innerHTML='<h1>JOURNAL</h1>'+(G.lore.map(o=>`[${LV[o.l][0]}] ${o.t}`).join('\n\n')||'Nothing yet.')+`\n\nLore ${G.lore.length}/37 | Artifacts ${G.art} | Survivors ${G.surv}\n<button onclick="resume()">Resume</button>`}else if(st=='journal')resume()}
+function resume(){st='play';$('ov').style.display='none'}
+function start(c){aud();if(c){try{const o=JSON.parse(localStorage.getItem('brs'));Object.assign(G,o.G);Object.assign(P,o.P)}catch(e){}}load(G.lv);resume();hud()}
+addEventListener('keydown',e=>{const q=e.key.toLowerCase();k[q]=1;if(q=='tab'){e.preventDefault();journal();return}if(st!='play')return;
+if(q=='f')P.fl=!P.fl;if(q=='m'&&P.mm!==0||q=='m')P.mm=P.mm?0:1;
+if(q=='e'&&P.al>0){P.al--;P.s=Math.min(100,P.s+35);fl=0;msg('Almond Water. The world sharpens. Sanity +35.',2500);ach('w','Hydrated')}
+if(q=='g'&&P.rep>0){P.rep--;ents.forEach(x=>x.stun=10);msg('Repellent spray - entities recoil.',2000)}
+if(q=='c'){if(P.scrap>=2){P.scrap-=2;P.rep++;msg('Crafted: Entity Repellent',2000)}else msg('Need 2 scrap to craft.',1500)}});
+addEventListener('keyup',e=>k[e.key.toLowerCase()]=0);
+cv.onclick=()=>{if(st=='play'&&cv.requestPointerLock)cv.requestPointerLock()};
+addEventListener('mousemove',e=>{if(document.pointerLockElement)P.a+=e.movementX*.003});
+setInterval(()=>{if(st=='play')save()},10000);
+let hs=0;try{hs=!!localStorage.getItem('brs')}catch(e){}
+$('ov').innerHTML=`<h1>BACKROOMS: THE THRESHOLD</h1>You noclipped out of reality. You are not the first. The Threshold Initiative came here before you, and left their logs behind.\n\nWASD move | Arrows/mouse look (click to lock) | Shift sprint\nF flashlight | E drink Almond Water | G repellent | C craft (2 scrap) | M map | Tab journal\n\nGather clues on each level to unseal the exit. Darkness, entities and strange noises drain Sanity. Almond Water is rare. At 0 you are consumed.\n<button onclick="start(0)">New Game</button>${hs?'<button onclick="start(1)">Continue</button>':''}`;
+load(0);requestAnimationFrame(loop);
+</script></body></html>
